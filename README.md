@@ -33,7 +33,8 @@ LAPIS-SHRED/
 │   │   ├── timeseries.py            # Per-sensor time-series plots
 │   │   └── ndsi_plots.py            # NDSI-specific visualizations
 │   └── lapis_ndsi.py                # NDSI snow cover experiment
-└── quick_startup/                   # NDSI example
+├── quick_startup/                   # NDSI example
+└── demo_videos/                     # NDSI example visualizations
 ```
 
 ## Requirements
@@ -61,7 +62,7 @@ python data_generation_ndsi.py --project_id YOUR_GEE_PROJECT
 **2. Run experiment:**
 ```bash
 cd model
-python lapis_ndsi.py                            # backward (default)
+python lapis_ndsi.py                             # backward (default)
 python lapis_ndsi.py --inference_mode forward    # forward
 python lapis_ndsi.py --shred_mode frame          # frame-by-frame SHRED
 ```
@@ -81,6 +82,11 @@ Results are saved to `results_forward/` or `results_backward/`:
 | `timeseries_comparison.png` | Per-sensor time-series |
 | `scaf_diagnostics.png` | SCAF endpoint cutting |
 | `gifs/`, `videos/` | Reconstruction animations |
+
+## Demo Videos
+
+[NDSI Forward Reconstruction Demo](demo_videos/lapis_forward_combined.gif)
+[NDSI Backward Reconstruction Demo](demo_videos/lapis_backward_combined.gif)
 
 ## Citation
 
