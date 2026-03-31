@@ -40,7 +40,7 @@ LAPIS-SHRED/
 │   ├── lapis_2dkf.py
 │   ├── lapis_2dkvs.py
 │   └── lapis_ndsi.py
-├── quick_startup/                   # NDSI snow melt example
+├── quick_startup/NDSI_demo          # NDSI snow melt example: run lapis_ndsi_demo.py
 └── demo_videos/                     # NDSI snow melt example visualizations
 ```
 
