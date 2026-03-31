@@ -19,22 +19,29 @@ LAPIS-SHRED/
 ├── README.md
 ├── LICENSE
 ├── data/
-│   └── data_generation_ndsi.py      # MODIS NDSI download (Sierra Nevada)
+│   ├── data_generation_2dks.py
+│   ├── data_generation_2dkf.py
+│   ├── data_generation_2dkvs.py
+│   └── data_generation_ndsi.py
 ├── model/
 │   ├── shred_jax/                   # Shared JAX/Flax ML library
-│   │   ├── shred.py                 # SHRED models, losses, metrics
-│   │   ├── datasets.py              # Ensemble dataset classes
-│   │   ├── temporal_models.py       # Forward/Backward temporal models
-│   │   ├── training.py              # Training loops
-│   │   ├── inference.py             # LAPIS inference pipelines
-│   │   └── utils.py                 # Sensor placement, logging
+│   │   ├── shred.py                     - SHRED models, losses, metrics
+│   │   ├── datasets.py                  - ensemble datasets (sensor_extract_fn hook)
+│   │   ├── temporal_models.py           - Forward/BackwardFromWindow, BackwardFromTerminal
+│   │   ├── training.py                  - all training loops
+│   │   ├── inference.py                 - LAPIS inference pipelines + baselines
+│   │   └── utils.py                     - sensors, logging, JSON
 │   ├── visualizations/              # Plotting utilities
-│   │   ├── results_grid.py          # Shared GT/LAPIS/SHRED comparison figure
-│   │   ├── timeseries.py            # Per-sensor time-series plots
-│   │   └── ndsi_plots.py            # NDSI-specific visualizations
-│   └── lapis_ndsi.py                # NDSI snow cover experiment
-├── quick_startup/                   # NDSI example
-└── demo_videos/                     # NDSI example visualizations
+│   │   ├── results_grid.py              - generic 4×5 comparison
+│   │   ├── timeseries.py                - per-sensor time-series
+│   │   ├── ndsi_plots.py                - SCAF, snow anims, Fig1 sensors
+│   │   └── pde_plots.py                 - SymLogNorm/LogNorm figures, KVS 3×5
+│   ├── lapis_2dks.py
+│   ├── lapis_2dkf.py
+│   ├── lapis_2dkvs.py
+│   └── lapis_ndsi.py
+├── quick_startup/                   # NDSI snow melt example
+└── demo_videos/                     # NDSI snow melt example visualizations
 ```
 
 ## Requirements

@@ -364,7 +364,7 @@ def main():
     region = get_study_region()
     sample_region = get_sample_region(region)
 
-    # --- Download simulation years (skip if already downloaded) ---
+    #  Download simulation years (skip if already downloaded) 
     sim_dict = {}
     for yr in args.sim_years:
         npy_path = sim_dir / f"ndsi_{yr}.npy"
@@ -379,7 +379,7 @@ def main():
             print(f"  ✓ Saved ndsi_{yr}.npy  {data.shape}")
             sim_dict[yr] = data
 
-    # --- Download GT year (skip if already downloaded) ---
+    #  Download GT year (skip if already downloaded) 
     gt_npy_path = gt_dir / f"ndsi_{args.gt_year}.npy"
     gt_dates = []
     if gt_npy_path.exists():
@@ -393,7 +393,7 @@ def main():
             np.save(gt_npy_path, gt_data)
             print(f"  ✓ Saved ndsi_{args.gt_year}.npy  {gt_data.shape}")
 
-    # --- Metadata ---
+    #  Metadata 
     meta = {
         "experiment": "LAPIS-NDSI",
         "region": {
@@ -413,7 +413,7 @@ def main():
         json.dump(meta, f, indent=2)
     print(f"  ✓ Saved metadata.json")
 
-    # --- Preview ---
+    #  Preview 
     if gt_data is not None and sim_dict:
         create_preview(sim_dict, gt_data, gt_dates, vis_dir)
 

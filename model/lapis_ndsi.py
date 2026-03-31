@@ -60,6 +60,8 @@ from visualizations.ndsi_plots import (
 # Configuration
 
 class Config:
+    """All tunables in one place. Edit here for PyCharm runs."""
+
     # Paths — resolved from script location
     BASE_DIR: Path = SCRIPT_DIR.parent
     DATA_DIR: Path = None
