@@ -55,7 +55,7 @@ numpy
 scikit-learn
 scipy
 matplotlib
-earthengine-api   # for data download only
+earthengine-api   # for NDSI data download only
 ```
 
 ## Usage - e.g. NDSI
