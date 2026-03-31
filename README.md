@@ -85,8 +85,8 @@ Results are saved to `results_forward/` or `results_backward/`:
 
 ## Demo Videos
 
-[NDSI Forward Reconstruction Demo](demo_videos/lapis_forward_combined.gif)
-[NDSI Backward Reconstruction Demo](demo_videos/lapis_backward_combined.gif)
+![NDSI Forward Reconstruction Demo](demo_videos/lapis_forward_combined.gif)
+![NDSI Backward Reconstruction Demo](demo_videos/lapis_backward_combined.gif)
 
 ## Citation
 
