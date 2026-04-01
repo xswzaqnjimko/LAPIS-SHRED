@@ -1,6 +1,6 @@
 # LAPIS-SHRED
 
-**LAtent Phase Inference from Short time sequences using Shallow REcurrent Decoders**
+**LAtent Phase Inference from Short time sequences using SHallow REcurrent Decoders**
 
 **LAPIS-SHRED** reconstructs or forecasts complete spatiotemporal dynamics from sparse sensor measurements confined to a short temporal window. It operates through a three-stage pipeline: 
 
