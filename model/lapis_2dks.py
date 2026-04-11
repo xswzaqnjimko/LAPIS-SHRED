@@ -26,7 +26,8 @@ from shred_jax import (
     EnsembleSeq2SeqDataset, EnsembleFrameDataset,
     train_ensemble_shred, train_ensemble_frame_shred, train_backward_model,
     extract_latent_trajectories_seq2seq, extract_latent_trajectories_frame,
-    lapis_backward_inference_seq2seq, shred_baseline_seq2seq, shred_baseline_frame,
+    lapis_backward_inference_seq2seq, lapis_backward_inference_frame,
+    shred_baseline_seq2seq, shred_baseline_frame,
     compute_metrics, place_sensors, to_json_safe,
 )
 from visualizations.timeseries import save_timeseries
@@ -174,8 +175,12 @@ def main():
 
     # [5] LAPIS inference
     print(f"\n[5] LAPIS Backward Inference (last {obs_len} frames) ...")
-    pred_lapis = lapis_backward_inference_seq2seq(
-        shred_state, backward_state, gt_grid, sensors, dataset, obs_len, config)
+    if use_frame:
+        pred_lapis = lapis_backward_inference_frame(
+            shred_state, backward_state, gt_grid, sensors, dataset, obs_len_latent, config)
+    else:
+        pred_lapis = lapis_backward_inference_seq2seq(
+            shred_state, backward_state, gt_grid, sensors, dataset, obs_len, config)
 
     # [6] SHRED baseline
     print("\n[6] SHRED baseline ...")
