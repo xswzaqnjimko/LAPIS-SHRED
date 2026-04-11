@@ -15,14 +15,16 @@ Ensemble strategy: **Phase-shifted branching**
   but at different shedding phases. This produces meaningful diversity
   on a low-dimensional manifold — ideal for LAPIS.
 
-Directory layout:
-    LAPIS_2DKVS/
-    ├── code/          ← this script + lapis_2dkvs.py + shred_jax/
-    ├── data/          ← generated .npz files
-    └── results/
+LAPIS-SHRED/
+├── data/
+│   ├── data_generation_2dkvs.py    ← this script
+│   ├── sim_00.npz … sim_07.npz
+│   ├── gt.npz
+│   └── metadata.json
+└── model/
 
 Usage:
-    cd LAPIS_2DKVS/code
+    cd LAPIS-SHRED/data
     python data_generation_2dkvs.py
 """
 
@@ -254,7 +256,7 @@ if __name__ == "__main__":
     rng = np.random.default_rng(seed)
 
     #  Derived / bookkeeping  
-    DATA_DIR = Path(__file__).resolve().parent / "data"
+    DATA_DIR = Path(__file__).resolve().parent
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Wake mask for adding small perturbations (same as original approach)
