@@ -232,12 +232,59 @@ def lapis_forward_inference_seq2seq(shred_state, forward_state, gt_grid, sensors
     return pred[:T_gt].reshape((T_gt,) + spatial_shape)
 
 
-# Backward LAPIS inference (seq2seq mode, terminal frame)
+# Backward LAPIS inference (seq2seq mode, multi-frame terminal window)
 
 def lapis_backward_inference_seq2seq(shred_state, backward_state, gt_grid, sensors,
-                                     dataset, config,
+                                     dataset, obs_len, config,
                                      sensor_extract_fn=None):
-    """Backward inference from terminal frame: static-pad -> encode -> backward model -> decode."""
+    """Backward inference from terminal window: encode tail frames -> backward model -> decode."""
+    spatial_shape = gt_grid.shape[1:]
+    state_dim = int(np.prod(spatial_shape))
+    T_gt = gt_grid.shape[0]
+    latent_dim = config.SEQ2SEQ_HIDDEN * 2
+
+    if sensor_extract_fn is None:
+        sensor_extract_fn = lambda grid, locs: np.stack([grid[:, r, c] for r, c in locs], axis=1)
+
+    # Terminal window sensors with initial padding for encoder warm-up
+    gt_tail = gt_grid[-obs_len:]
+    sens_tail = sensor_extract_fn(gt_tail, sensors)
+    pad = np.tile(sens_tail[0:1], (dataset.initial_pad, 1))
+    sens_padded = np.concatenate([pad, sens_tail], axis=0)
+    sens_scaled = dataset.scaler_sensors.transform(sens_padded)
+    x_in = jnp.array(sens_scaled, dtype=jnp.float32)[None, ...]
+
+    encoder = Seq2SeqSHREDEncoder(
+        hidden_size=config.SEQ2SEQ_HIDDEN, num_layers=config.NUM_LAYERS, dropout_rate=0.0)
+    enc_params = extract_encoder_params(shred_state.params)
+
+    try:
+        enc_out = encoder.apply({"params": enc_params}, x_in, train=False)
+        z_tail = enc_out[0, dataset.initial_pad:]
+    except Exception as e:
+        print(f"  Warning: encoder failed ({e}), using projection fallback")
+        np.random.seed(config.SEED)
+        proj = np.random.randn(config.N_SENSORS, latent_dim) / np.sqrt(config.N_SENSORS)
+        z_tail = jnp.array(sens_scaled[dataset.initial_pad:] @ proj, dtype=jnp.float32)
+
+    # Backward model: terminal window -> preceding trajectory
+    T_prior = T_gt - obs_len
+    z_tail_batch = z_tail[None, ...]
+    z_prior = backward_state.apply_fn(
+        {"params": backward_state.params}, z_tail_batch, T_prior, train=False)[0]
+
+    z_full = jnp.concatenate([z_prior, z_tail], axis=0)
+    pred_scaled = decode_latent_with_frozen_shred(z_full, shred_state, state_dim, config)
+    pred = dataset.scaler_states.inverse_transform(np.array(pred_scaled))
+    return pred[:T_gt].reshape((T_gt,) + spatial_shape)
+
+
+# Backward LAPIS inference (seq2seq mode, single terminal frame with static padding)
+
+def lapis_backward_inference_terminal_seq2seq(shred_state, backward_state, gt_grid, sensors,
+                                              dataset, config,
+                                              sensor_extract_fn=None):
+    """Backward inference from single terminal frame: static-pad -> encode -> backward model -> decode."""
     spatial_shape = gt_grid.shape[1:]
     state_dim = int(np.prod(spatial_shape))
     T_gt = gt_grid.shape[0]
@@ -274,6 +321,96 @@ def lapis_backward_inference_seq2seq(shred_state, backward_state, gt_grid, senso
     z_full = jnp.concatenate([z_pred_seq, z_T[None, :]], axis=0)
     pred_scaled = decode_latent_with_frozen_shred(z_full, shred_state, state_dim, config)
     pred = dataset.scaler_states.inverse_transform(np.array(pred_scaled))
+    return pred[:T_gt].reshape((T_gt,) + spatial_shape)
+
+
+# Backward LAPIS inference (frame-by-frame mode)
+
+def lapis_backward_inference_frame(shred_state, backward_state, gt_grid, sensors,
+                                   frame_dataset, obs_len, config,
+                                   sensor_extract_fn=None):
+    """Backward inference using frame-by-frame SHRED encoder."""
+    spatial_shape = gt_grid.shape[1:]
+    state_dim = int(np.prod(spatial_shape))
+    T_gt = gt_grid.shape[0]
+    lags = config.LAGS
+    n_sensors = config.N_SENSORS
+    scaler_sens = frame_dataset.scaler_sensors
+    scaler_st = frame_dataset.scaler_states
+
+    if sensor_extract_fn is None:
+        sensor_extract_fn = lambda grid, locs: np.stack([grid[:, r, c] for r, c in locs], axis=1)
+
+    # Encode terminal window through frame SHRED encoder
+    gt_tail = gt_grid[-obs_len:]
+    sens_tail = sensor_extract_fn(gt_tail, sensors)
+    pad = np.tile(sens_tail[0:1], (lags - 1, 1))
+    sens_padded = np.concatenate([pad, sens_tail], axis=0)
+
+    N_obs = obs_len
+    X_obs = np.zeros((N_obs, lags, n_sensors), dtype=np.float32)
+    for i in range(N_obs):
+        X_obs[i] = sens_padded[i:i + lags]
+
+    X_flat = scaler_sens.transform(X_obs.reshape(-1, n_sensors))
+    X_scaled = X_flat.reshape(N_obs, lags, n_sensors)
+
+    class FrameEncoder(nn.Module):
+        hidden_size: int = 64
+        num_layers: int = 2
+        dropout_rate: float = 0.0
+
+        @nn.compact
+        def __call__(self, x, train=False):
+            encoder = BidirectionalLSTM(
+                hidden_size=self.hidden_size, num_layers=self.num_layers,
+                dropout_rate=self.dropout_rate if self.num_layers > 1 else 0.0)
+            _, h_final = encoder(x, train=train)
+            return nn.LayerNorm(name='h_norm')(h_final)
+
+    enc_params = {k: v for k, v in shred_state.params.items() if "MLPDecoder" not in k}
+    encoder = FrameEncoder(hidden_size=config.SEQ2SEQ_HIDDEN, num_layers=config.NUM_LAYERS)
+    x_jax = jnp.array(X_scaled, dtype=jnp.float32)
+
+    try:
+        z_tail = encoder.apply({"params": enc_params}, x_jax, train=False)
+    except Exception:
+        z_tail = shred_state.apply_fn({"params": shred_state.params}, x_jax, train=False)
+
+    # Backward model: terminal window -> preceding trajectory
+    T_prior = T_gt - obs_len
+    z_tail_batch = jnp.array(z_tail)[None, ...]
+    z_prior = backward_state.apply_fn(
+        {"params": backward_state.params}, z_tail_batch, T_prior, train=False)[0]
+
+    z_full = jnp.concatenate([z_prior, jnp.array(z_tail)], axis=0)
+
+    # Decode using frame SHRED decoder
+    dec_params = {k: v for k, v in shred_state.params.items()
+                  if "MLPDecoder" in k or k.startswith("MLPDecoder")}
+
+    if z_full.shape[1] == state_dim:
+        pred = scaler_st.inverse_transform(np.array(z_full))
+    else:
+        from .shred import MLPDecoder as MLPDecoderModule
+
+        class FrameDecoder(nn.Module):
+            decoder_layers: tuple = (256, 256)
+            state_dim: int = 4096
+            dropout_rate: float = 0.0
+
+            @nn.compact
+            def __call__(self, h, train=False):
+                return MLPDecoderModule(
+                    layer_sizes=self.decoder_layers, output_dim=self.state_dim,
+                    dropout_rate=self.dropout_rate)(h, train=train)
+
+        frame_decoder = FrameDecoder(
+            decoder_layers=config.DECODER_LAYERS, state_dim=state_dim)
+        pred_scaled = frame_decoder.apply(
+            {"params": dec_params}, jnp.array(z_full), train=False)
+        pred = scaler_st.inverse_transform(np.array(pred_scaled))
+
     return pred[:T_gt].reshape((T_gt,) + spatial_shape)
 
 
