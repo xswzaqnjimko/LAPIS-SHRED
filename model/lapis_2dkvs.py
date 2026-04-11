@@ -28,6 +28,7 @@ from shred_jax import (
     train_forward_model, train_backward_model,
     extract_latent_trajectories_seq2seq, extract_latent_trajectories_frame,
     lapis_forward_inference_seq2seq, lapis_backward_inference_seq2seq,
+    lapis_backward_inference_frame,
     shred_baseline_seq2seq, shred_baseline_frame,
     compute_metrics, place_sensors, TeeLogger, to_json_safe,
 )
@@ -103,6 +104,47 @@ def load_data(config):
     cyl_mask = gt_data["cyl_mask"].astype(np.float32) if "cyl_mask" in gt_data else None
     print(f"    gt.npz: omega={gt_grid.shape}")
     return sim_grids, gt_grid, cyl_mask
+
+
+def place_sensors(sim_grids, Nx, Ny, n_sensors, strategy="variance", seed=42):
+    rng_np = np.random.RandomState(seed)
+    if strategy == "grid":
+        n_side = int(np.ceil(np.sqrt(n_sensors)))
+        rows = np.linspace(1, Nx - 2, n_side, dtype=int)
+        cols = np.linspace(1, Ny - 2, n_side, dtype=int)
+        rr, cc = np.meshgrid(rows, cols)
+        locs = np.column_stack([rr.ravel(), cc.ravel()])[:n_sensors]
+    elif strategy == "stratified":
+        var_maps = [np.var(g, axis=0) for g in sim_grids]
+        variance = np.mean(var_maps, axis=0)
+        flat_var = variance.ravel()
+        mask = np.zeros(Nx * Ny, dtype=bool)
+        for i in range(Nx):
+            for j in range(Ny):
+                if 2 <= i < Nx - 2 and 2 <= j < Ny - 2:
+                    mask[i * Ny + j] = True
+        weights = np.where(mask, flat_var + 1e-6, 0.0)
+        weights = weights / weights.sum()
+        indices = rng_np.choice(Nx * Ny, size=n_sensors, replace=False, p=weights)
+        rows = indices // Ny
+        cols = indices % Ny
+        locs = np.column_stack([rows, cols])
+    elif strategy == "variance":
+        var_maps = [np.var(g, axis=0) for g in sim_grids]
+        variance = np.mean(var_maps, axis=0)
+        variance[:1, :] = 0
+        variance[-1:, :] = 0
+        flat_var = variance.ravel() + 1e-8
+        weights = flat_var / flat_var.sum()
+        indices = rng_np.choice(Nx * Ny, size=n_sensors, replace=False, p=weights)
+        rows = indices // Ny
+        cols = indices % Ny
+        locs = np.column_stack([rows, cols])
+    else:
+        rows = rng_np.randint(0, Nx, size=n_sensors)
+        cols = rng_np.randint(0, Ny, size=n_sensors)
+        locs = np.column_stack([rows, cols])
+    return locs
 
 
 # Main
@@ -212,8 +254,12 @@ def main():
     obs_label = "last" if use_backward else "first"
     print(f"\n[5] LAPIS {mode_label} Inference ({obs_label} {obs_len} frames) ...")
     if use_backward:
-        pred_lapis = lapis_backward_inference_seq2seq(
-            shred_state, temporal_state, gt_grid, sensors, dataset, obs_len, config)
+        if use_frame:
+            pred_lapis = lapis_backward_inference_frame(
+                shred_state, temporal_state, gt_grid, sensors, dataset, obs_len_latent, config)
+        else:
+            pred_lapis = lapis_backward_inference_seq2seq(
+                shred_state, temporal_state, gt_grid, sensors, dataset, obs_len, config)
     else:
         pred_lapis = lapis_forward_inference_seq2seq(
             shred_state, temporal_state, gt_grid, sensors, dataset, obs_len, config)
