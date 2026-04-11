@@ -22,13 +22,13 @@ as described in:
   - "Spectral Shaping for Neural PDE Surrogates" (ICLR 2025 submission)
 
 Directory layout:
-    LAPIS_2DKF/
-    ├── code/          ← this script + lapis_2dkf.py + shred_jax/
-    ├── data/          ← generated .npz files
+    LAPIS-SHRED/
+    ├── data/          ← this script + generated .npz files
+    ├── model/         ← lapis_2dkf.py + shred_jax/
     └── results/
 
 Usage:
-    cd LAPIS_2DKF/code
+    cd LAPIS-SHRED/data
     python data_generation_2dkf.py
 """
 
