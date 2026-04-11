@@ -17,13 +17,13 @@ short observed time window at the end (not a single static frame) and
 backward-reconstructs the preceding trajectory.
 
 Directory layout:
-    LAPIS_2DKS/
-    ├── code/          ← this script + lapis_2dks.py + shred_jax/
-    ├── data/          ← generated .npz files
+    LAPIS-SHRED/
+    ├── data/          ← this script + generated .npz files
+    ├── model/         ← lapis_2dks.py + shred_jax/
     └── results/
 
 Usage:
-    cd LAPIS_2DKS/code
+    cd LAPIS-SHRED/data
     python data_generation_2dks.py
 """
 
