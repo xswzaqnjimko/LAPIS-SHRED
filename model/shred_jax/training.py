@@ -214,7 +214,7 @@ def prepare_backward_batch(latent_trajectories, T_originals, obs_len, max_T_prio
             jnp.array(z_init_batch), jnp.array(mask_batch))
 
 
-@partial(jax.jit, static_argnums=(5, 6, 7, 8))
+@partial(jax.jit, static_argnums=(6, 7, 8, 9))
 def train_step_backward(state, z_window, z_target, z_init_batch, mask, rng_key,
                         max_T_prior, lambda_recon, lambda_anchor, lambda_shape):
     def loss_fn(params):
