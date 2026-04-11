@@ -11,45 +11,43 @@ import sys
 import numpy as np
 
 
-def place_sensors(sim_grids, H, W, n_sensors, strategy="stratified", seed=42):
-    """Place sensors using variance-weighted or stratified sampling.
-
-    Args:
-        sim_grids: list of (T, H, W) arrays (or variance maps computed externally)
-        H, W: spatial dimensions
-        n_sensors: number of sensors to place
-        strategy: "stratified" (variance-weighted with boundary exclusion),
-                  "variance" (pure variance-weighted), or "random"
-        seed: random seed
-    Returns:
-        (n_sensors, 2) array of (row, col) sensor locations
-    """
-    rng = np.random.RandomState(seed)
-
-    if strategy in ("stratified", "variance"):
+def place_sensors(sim_grids, Nx, Ny, n_sensors, strategy="variance", seed=42):
+    rng_np = np.random.RandomState(seed)
+    if strategy == "grid":
+        n_side = int(np.ceil(np.sqrt(n_sensors)))
+        rows = np.linspace(1, Nx - 2, n_side, dtype=int)
+        cols = np.linspace(1, Ny - 2, n_side, dtype=int)
+        rr, cc = np.meshgrid(rows, cols)
+        locs = np.column_stack([rr.ravel(), cc.ravel()])[:n_sensors]
+    elif strategy == "stratified":
         var_maps = [np.var(g, axis=0) for g in sim_grids]
         variance = np.mean(var_maps, axis=0)
         flat_var = variance.ravel()
-
-        if strategy == "stratified":
-            mask = np.zeros(H * W, dtype=bool)
-            for i in range(H):
-                for j in range(W):
-                    if 2 <= i < H - 2 and 2 <= j < W - 2:
-                        mask[i * W + j] = True
-            weights = np.where(mask, flat_var + 1e-6, 0.0)
-        else:
-            weights = flat_var + 1e-8
-
+        mask = np.zeros(Nx * Ny, dtype=bool)
+        for i in range(Nx):
+            for j in range(Ny):
+                if 2 <= i < Nx - 2 and 2 <= j < Ny - 2:
+                    mask[i * Ny + j] = True
+        weights = np.where(mask, flat_var + 1e-6, 0.0)
         weights = weights / weights.sum()
-        indices = rng.choice(H * W, size=n_sensors, replace=False, p=weights)
-        rows = indices // W
-        cols = indices % W
-        return np.column_stack([rows, cols])
+        indices = rng_np.choice(Nx * Ny, size=n_sensors, replace=False, p=weights)
+        rows = indices // Ny
+        cols = indices % Ny
+        locs = np.column_stack([rows, cols])
+    elif strategy == "variance":
+        var_maps = [np.var(g, axis=0) for g in sim_grids]
+        variance = np.mean(var_maps, axis=0)
+        flat_var = variance.ravel() + 1e-8
+        weights = flat_var / flat_var.sum()
+        indices = rng_np.choice(Nx * Ny, size=n_sensors, replace=False, p=weights)
+        rows = indices // Ny
+        cols = indices % Ny
+        locs = np.column_stack([rows, cols])
     else:
-        rows = rng.randint(2, H - 2, size=n_sensors)
-        cols = rng.randint(2, W - 2, size=n_sensors)
-        return np.stack([rows, cols], axis=1)
+        rows = rng_np.randint(0, Nx, size=n_sensors)
+        cols = rng_np.randint(0, Ny, size=n_sensors)
+        locs = np.column_stack([rows, cols])
+    return locs
 
 
 class TeeLogger:
@@ -60,12 +58,14 @@ class TeeLogger:
 
     def write(self, message):
         self.terminal.write(message)
-        self.log_file.write(message)
-        self.log_file.flush()
+        if not self.log_file.closed:
+            self.log_file.write(message)
+            self.log_file.flush()
 
     def flush(self):
         self.terminal.flush()
-        self.log_file.flush()
+        if not self.log_file.closed:
+            self.log_file.flush()
 
     def close_log(self):
         self.log_file.close()
