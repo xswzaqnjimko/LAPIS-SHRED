@@ -30,6 +30,7 @@ from .inference import (
     decode_latent_with_frozen_shred,
     extract_latent_trajectories_seq2seq, extract_latent_trajectories_frame,
     lapis_forward_inference_seq2seq, lapis_backward_inference_seq2seq,
+    lapis_backward_inference_terminal_seq2seq, lapis_backward_inference_frame,
     shred_baseline_seq2seq, shred_baseline_frame,
 )
 
