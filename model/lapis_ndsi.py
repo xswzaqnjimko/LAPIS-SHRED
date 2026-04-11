@@ -46,7 +46,7 @@ from shred_jax import (
     train_ensemble_shred, train_ensemble_frame_shred,
     train_forward_model, train_backward_model,
     extract_latent_trajectories_seq2seq, extract_latent_trajectories_frame,
-    lapis_forward_inference_seq2seq, lapis_backward_inference_seq2seq,
+    lapis_forward_inference_seq2seq, lapis_backward_inference_terminal_seq2seq,
     shred_baseline_seq2seq, shred_baseline_frame,
     compute_metrics, place_sensors, to_json_safe,
 )
@@ -356,7 +356,7 @@ def main():
             z_inits=z_inits)
 
         print(f"\n[5] LAPIS Backward Inference (terminal frame only) ...")
-        pred_lapis = lapis_backward_inference_seq2seq(
+        pred_lapis = lapis_backward_inference_terminal_seq2seq(
             shred_state, backward_state, gt_grid, sensors, dataset, config)
     else:
         print("\n[4] Training Forward Model ...")
