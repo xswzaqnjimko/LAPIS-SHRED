@@ -14,8 +14,9 @@ MODIS snow products used:
   - MYD10A1.061: Aqua  Snow Cover Daily (500 m)   → NDSI_Snow_Cover band
 
 Output structure:
-    LAPIS_NDSI/
+    LAPIS-SHRED/
     ├── data/
+    │   ├── data_generation_ndsi.py      ← this script
     │   ├── sim_years/
     │   │   ├── ndsi_2020.npy   (T, H, W)  float32
     │   │   ├── ndsi_2021.npy
@@ -26,8 +27,8 @@ Output structure:
     │   ├── metadata.json
     │   └── visualization/
     │       └── data_preview.png
-    └── codes/
-        └── data_generation_ndsi.py
+    └── model/
+        └── lapis_ndsi.py + shred_jax/
 
 Usage:
     python data_generation_ndsi.py
