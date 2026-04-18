@@ -115,9 +115,8 @@ def extract_latent_trajectories_seq2seq(shred_state, dataset, config):
             proj = np.random.randn(config.N_SENSORS, latent_dim) / np.sqrt(config.N_SENSORS)
             traj = np.array(x) @ proj
 
-        T_pad = dataset.initial_pad
         T_orig = dataset.T_originals[i]
-        traj = traj[T_pad: T_pad + T_orig]
+        traj = traj[:T_orig]
         trajectories.append(traj)
         z_inits.append(traj[0])
 
@@ -203,9 +202,7 @@ def lapis_forward_inference_seq2seq(shred_state, forward_state, gt_grid, sensors
 
     gt_obs = gt_grid[:obs_len]
     sens_obs = sensor_extract_fn(gt_obs, sensors)
-    pad = np.tile(sens_obs[0:1], (dataset.initial_pad, 1))
-    sens_padded = np.concatenate([pad, sens_obs], axis=0)
-    sens_scaled = dataset.scaler_sensors.transform(sens_padded)
+    sens_scaled = dataset.scaler_sensors.transform(sens_obs)
     x_in = jnp.array(sens_scaled, dtype=jnp.float32)[None, ...]
 
     encoder = Seq2SeqSHREDEncoder(
@@ -214,12 +211,12 @@ def lapis_forward_inference_seq2seq(shred_state, forward_state, gt_grid, sensors
 
     try:
         enc_out = encoder.apply({"params": enc_params}, x_in, train=False)
-        z_obs = enc_out[0, dataset.initial_pad:]
+        z_obs = enc_out[0]
     except Exception as e:
         print(f"  Warning: encoder failed ({e}), using projection fallback")
         np.random.seed(config.SEED)
         proj = np.random.randn(config.N_SENSORS, latent_dim) / np.sqrt(config.N_SENSORS)
-        z_obs = jnp.array(sens_scaled[dataset.initial_pad:] @ proj, dtype=jnp.float32)
+        z_obs = jnp.array(sens_scaled @ proj, dtype=jnp.float32)
 
     T_future = T_gt - obs_len
     z_obs_batch = z_obs[None, ...]
@@ -246,12 +243,10 @@ def lapis_backward_inference_seq2seq(shred_state, backward_state, gt_grid, senso
     if sensor_extract_fn is None:
         sensor_extract_fn = lambda grid, locs: np.stack([grid[:, r, c] for r, c in locs], axis=1)
 
-    # Terminal window sensors with initial padding for encoder warm-up
+    # Terminal window sensors (no initial padding in Seq2Seq mode)
     gt_tail = gt_grid[-obs_len:]
     sens_tail = sensor_extract_fn(gt_tail, sensors)
-    pad = np.tile(sens_tail[0:1], (dataset.initial_pad, 1))
-    sens_padded = np.concatenate([pad, sens_tail], axis=0)
-    sens_scaled = dataset.scaler_sensors.transform(sens_padded)
+    sens_scaled = dataset.scaler_sensors.transform(sens_tail)
     x_in = jnp.array(sens_scaled, dtype=jnp.float32)[None, ...]
 
     encoder = Seq2SeqSHREDEncoder(
@@ -260,12 +255,12 @@ def lapis_backward_inference_seq2seq(shred_state, backward_state, gt_grid, senso
 
     try:
         enc_out = encoder.apply({"params": enc_params}, x_in, train=False)
-        z_tail = enc_out[0, dataset.initial_pad:]
+        z_tail = enc_out[0]
     except Exception as e:
         print(f"  Warning: encoder failed ({e}), using projection fallback")
         np.random.seed(config.SEED)
         proj = np.random.randn(config.N_SENSORS, latent_dim) / np.sqrt(config.N_SENSORS)
-        z_tail = jnp.array(sens_scaled[dataset.initial_pad:] @ proj, dtype=jnp.float32)
+        z_tail = jnp.array(sens_scaled @ proj, dtype=jnp.float32)
 
     # Backward model: terminal window -> preceding trajectory
     T_prior = T_gt - obs_len
@@ -426,11 +421,9 @@ def shred_baseline_seq2seq(shred_state, gt_grid, sensors, dataset, config,
         sensor_extract_fn = lambda grid, locs: np.stack([grid[:, r, c] for r, c in locs], axis=1)
 
     sens_full = sensor_extract_fn(gt_grid, sensors)
-    pad = np.tile(sens_full[0:1], (dataset.initial_pad, 1))
-    sens_padded = np.concatenate([pad, sens_full], axis=0)
-    sens_scaled = dataset.scaler_sensors.transform(sens_padded)
+    sens_scaled = dataset.scaler_sensors.transform(sens_full)
 
-    max_T = max(dataset.T_padded)
+    max_T = max(dataset.T_originals)
     if sens_scaled.shape[0] < max_T:
         extra = max_T - sens_scaled.shape[0]
         sens_scaled = np.concatenate([sens_scaled, np.tile(sens_scaled[-1:], (extra, 1))])
@@ -438,7 +431,7 @@ def shred_baseline_seq2seq(shred_state, gt_grid, sensors, dataset, config,
     x = jnp.array(sens_scaled, dtype=jnp.float32)[None, ...]
     pred_scaled = shred_state.apply_fn({"params": shred_state.params}, x, train=False)
     pred = dataset.scaler_states.inverse_transform(np.array(pred_scaled[0]))
-    pred = pred[dataset.initial_pad: dataset.initial_pad + T_gt]
+    pred = pred[:T_gt]
     return pred.reshape((T_gt,) + spatial_shape)
 
 
