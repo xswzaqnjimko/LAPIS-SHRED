@@ -23,7 +23,7 @@ class EnsembleSeq2SeqDataset:
     """
 
     def __init__(self, sequences_in: List[np.ndarray], sensor_locs: np.ndarray,
-                 initial_pad: int = 10, fit: bool = True,
+                 initial_pad: int = 0, fit: bool = True,
                  sensor_extract_fn=None):
         """
         Args:
@@ -37,7 +37,6 @@ class EnsembleSeq2SeqDataset:
         self.sequences = sequences_in
         self.sensor_locs = sensor_locs
         self.n_sensors = len(sensor_locs)
-        self.initial_pad = initial_pad
 
         s0 = sequences_in[0]
         self.spatial_shape = s0.shape[1:]  # (H, W) or (C, H, W)
@@ -50,10 +49,8 @@ class EnsembleSeq2SeqDataset:
         self._extract = sensor_extract_fn
 
         # Prepend initial padding
-        self.sequences_padded = []
-        for seq in sequences_in:
-            pad = np.tile(seq[0:1], (initial_pad,) + (1,) * (seq.ndim - 1))
-            self.sequences_padded.append(np.concatenate([pad, seq], axis=0))
+        self.initial_pad = 0
+        self.sequences_padded = list(sequences_in)
         self.T_padded = [s.shape[0] for s in self.sequences_padded]
 
         # Extract sensor series and flatten states
